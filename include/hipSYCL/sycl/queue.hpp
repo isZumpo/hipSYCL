@@ -1,7 +1,7 @@
 /*
  * This file is part of hipSYCL, a SYCL implementation based on CUDA/HIP
  *
- * Copyright (c) 2018,2019 Aksel Alpay
+ * Copyright (c) 2018-2020 Aksel Alpay and contributors
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -91,6 +91,9 @@ struct hipSYCL_retarget : public detail::property{
 namespace property::queue {
 
 class in_order : public detail::property
+{};
+
+class enable_profiling : public detail::property
 {};
 
 }
@@ -717,8 +720,10 @@ private:
     return dag_nodes.back();
   }
 
-
   void init() {
+    if (this->has_property<property::queue::enable_profiling>()) {
+      _default_hints.add_hint(rt::make_execution_hint<rt::hints::enable_profiling>());
+    }
     _is_in_order = this->has_property<property::queue::in_order>();
     _lock = std::make_shared<std::mutex>();
 
