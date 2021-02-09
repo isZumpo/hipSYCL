@@ -31,6 +31,8 @@
 #include "hipSYCL/runtime/dag_manager.hpp"
 #include "hipSYCL/runtime/operations.hpp"
 #include "hipSYCL/runtime/util.hpp"
+#include "hipSYCL/plantuml.hpp"
+
 
 namespace hipsycl {
 namespace rt {
@@ -118,6 +120,8 @@ void dag_manager::flush_async()
         _direct_scheduler.submit(node);
       
       }
+      static plantuml plant;
+      plant.print(new_dag);
     } else {
       HIPSYCL_DEBUG_INFO << "dag_manager [async]: Nothing to do" << std::endl;
     }
