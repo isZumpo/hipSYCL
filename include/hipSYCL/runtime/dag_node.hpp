@@ -71,6 +71,8 @@ public:
   backend_executor *get_assigned_executor() const;
   std::size_t get_assigned_execution_lane() const;
 
+  void assign_node_id(std::size_t id);
+
   const execution_hints& get_execution_hints() const;
   execution_hints& get_execution_hints();
 
@@ -84,6 +86,9 @@ public:
   // in which case the function will additionally wait
   // until the event exists.
   void wait() const;
+
+  bool has_node_id() const;	
+  std::size_t get_node_id() const;
 
   std::shared_ptr<dag_node_event> get_event() const;
 
@@ -105,6 +110,7 @@ private:
   bool _is_virtual;
   std::atomic<bool> _is_cancelled;
 
+  std::size_t _node_id;
 };
 
 }
