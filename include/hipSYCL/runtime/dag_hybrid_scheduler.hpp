@@ -1,7 +1,7 @@
 /*
  * This file is part of hipSYCL, a SYCL implementation based on CUDA/HIP
  *
- * Copyright (c) 2019 Aksel Alpay
+ * Copyright (c) 2020 Aksel Alpay
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,63 +25,20 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HIPSYCL_DAG_MANAGER_HPP
-#define HIPSYCL_DAG_MANAGER_HPP
+#ifndef HIPSYCL_DAG_HYBRID_SCHEDULER_HPP
+#define HIPSYCL_DAG_HYBRID_SCHEDULER_HPP
 
-#include "dag.hpp"
-#include "dag_builder.hpp"
-#include "dag_direct_scheduler.hpp"
-#include "dag_hybrid_scheduler.hpp"
-#include "dag_submitted_ops.hpp"
-#include "generic/async_worker.hpp"
+#include <functional>
 
+#include "dag_node.hpp"
+#include "operations.hpp"
 
 namespace hipsycl {
 namespace rt {
 
-class dag_interpreter;
-
-class dag_manager
-{
-  friend class dag_build_guard;
-public:
-  dag_manager();
-  ~dag_manager();
-
-  // Submits operations asynchronously
-  void flush_async();
-  // Submits operations asynchronously and
-  // wait until they have been submitted
-  void flush_sync();
-  // Wait for completion of all submitted operations
-  void wait();
-  
-  void register_submitted_ops(dag_node_ptr);
-private:
-  void trigger_flush_opportunity();
-
-  dag_builder* builder() const;
-
-  std::unique_ptr<dag_builder> _builder;
-  worker_thread _worker;
-  
-  dag_hybrid_scheduler _hybrid_scheduler;
-  dag_direct_scheduler _direct_scheduler;
-  dag_submitted_ops _submitted_ops;
-};
-
-class dag_build_guard
-{
-public:
-  dag_build_guard(dag_manager& mgr)
-  : _mgr{&mgr} {}
-
-  ~dag_build_guard();
-
-  dag_builder* builder() const
-  { return _mgr->builder(); }
-private:
-  dag_manager* _mgr;
+class dag_hybrid_scheduler {
+ public:
+  void submit(dag_node_ptr node);
 };
 
 }
