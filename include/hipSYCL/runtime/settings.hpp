@@ -38,7 +38,7 @@
 namespace hipsycl {
 namespace rt {
 
-enum class scheduler_type { direct };
+enum class scheduler_type { direct, hybrid };
 
 inline std::istream &operator>>(std::istream &istr, scheduler_type &out) {
   std::string str;
