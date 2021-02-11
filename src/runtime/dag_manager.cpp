@@ -113,11 +113,14 @@ void dag_manager::flush_async()
       // This is okay because get_command_groups() returns
       // the nodes in the order they were submitted. This
       // makes it safe to submit them in this order to the direct scheduler.
+      // static int dag_number = 0;
+      // std::cout << "Dag number: " << dag_number++ << std::endl;
       for(auto node : new_dag.get_command_groups()){
         HIPSYCL_DEBUG_INFO
             << "dag_manager [async]: Submitting node to direct scheduler!"
             << std::endl;
-        _direct_scheduler.submit(node);
+        // _direct_scheduler.submit(node);
+        _hybrid_scheduler.submit(node);
       
       }
       static plantuml plant;
