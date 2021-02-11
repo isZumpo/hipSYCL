@@ -17,6 +17,10 @@ class plantuml {
   int call = 0;
 
   void printOperationType(dag_node_ptr node) {
+
+    if(node->get_operation()->is_requirement()) {
+      std::cout << "REQUIREMENT" << std::endl;
+    }
     if (typeid(*node->get_operation()) == typeid(kernel_operation)) {
       kernel_operation* k = dynamic_cast<kernel_operation*>(node->get_operation());
 
@@ -133,6 +137,7 @@ class plantuml {
     if (true) {  // Recursive dependencies
       for (auto node : dag.get_command_groups()) {
         addNode(node);
+        std::cout << "commandgroupdag" << call << " -> N" << node->get_node_id() << std::endl; 
         for (auto req : node->get_requirements()) {
           recReq(node, req);
         }
@@ -146,8 +151,8 @@ class plantuml {
         }
       }
     }
-
     std::cout << std::endl << "}" << std::endl;
+
     call++;
   }
 };

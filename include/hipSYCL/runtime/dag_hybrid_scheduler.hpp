@@ -38,7 +38,11 @@ namespace rt {
 
 class dag_hybrid_scheduler {
  public:
+  void initialize_devices();
   void submit(dag_node_ptr node);
+
+ private:
+  std::vector<device_id> _devices;
 };
 
 }
