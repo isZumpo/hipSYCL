@@ -68,7 +68,7 @@ void initialize_memory_access(buffer_memory_requirement *bmem_req, device_id tar
 
   void *device_pointer = bmem_req->get_data_region()->get_memory(target_dev);
   bmem_req->initialize_device_data(device_pointer);
-  HIPSYCL_DEBUG_INFO << "dag_direct_scheduler: Preparing deferred pointer of "
+  HIPSYCL_DEBUG_INFO << "dag_hybrid_scheduler: Preparing deferred pointer of "
                         "requirement node "
                      << dump(bmem_req) << std::endl;
 }
@@ -84,7 +84,7 @@ result ensure_allocation_exists(buffer_memory_requirement *bmem_req, device_id t
     void *ptr = application::get_backend(target_dev.get_backend()).get_allocator(target_dev)->allocate(min_align, num_bytes);
 
     if (!ptr)
-      return register_error(__hipsycl_here(), error_info{"dag_direct_scheduler: Lazy memory allocation has failed.",
+      return register_error(__hipsycl_here(), error_info{"dag_hybrid_scheduler: Lazy memory allocation has failed.",
                                                          error_type::memory_allocation_error});
 
     bmem_req->get_data_region()->add_empty_allocation(target_dev, ptr);
@@ -113,7 +113,7 @@ void for_each_explicit_operation(dag_node_ptr node, std::function<void(operation
         bmem_req->get_data_region()->get_update_source_candidates(target_device, region, update_sources);
 
         if (update_sources.empty()) {
-          register_error(__hipsycl_here(), error_info{"dag_direct_scheduler: Could not obtain data "
+          register_error(__hipsycl_here(), error_info{"dag_hybrid_scheduler: Could not obtain data "
                                                       "update sources when trying to materialize "
                                                       "implicit requirement"});
           node->cancel();
@@ -191,7 +191,7 @@ result submit_requirement(dag_node_ptr req) {
     if (has_initialized_content) {
       for_each_explicit_operation(req, [&](operation *op) {
         if (!op->is_data_transfer()) {
-          res = make_error(__hipsycl_here(), error_info{"dag_direct_scheduler: only data transfers are supported "
+          res = make_error(__hipsycl_here(), error_info{"dag_hybrid_scheduler: only data transfers are supported "
                                                         "as operations generated from implicit requirements.",
                                                         error_type::feature_not_supported});
         } else {
@@ -202,7 +202,7 @@ result submit_requirement(dag_node_ptr req) {
         }
       });
     } else {
-      HIPSYCL_DEBUG_WARNING << "dag_direct_scheduler: Detected a requirement that is neither of "
+      HIPSYCL_DEBUG_WARNING << "dag_hybrid_scheduler: Detected a requirement that is neither of "
                                "discard access mode (SYCL 1.2.1) nor noinit property (SYCL 2020) "
                                "that accesses uninitialized data. Consider changing to "
                                "discard/noinit. Optimizing potential data transfers away."
@@ -257,7 +257,7 @@ void dag_hybrid_scheduler::submit(dag_node_ptr node) {
   // Assign the correct device to the current node.
   if (node->get_operation()->is_requirement()) {
     if (!node->get_execution_hints().has_hint<hints::bind_to_device>()) {
-      register_error(__hipsycl_here(), error_info{"dag_direct_scheduler: Direct scheduler does not "
+      register_error(__hipsycl_here(), error_info{"dag_hybrid_scheduler: Direct scheduler does not "
                                                   "support DAG nodes not bound to devices.",
                                                   error_type::feature_not_supported});
       abort_submission(node);
@@ -284,7 +284,7 @@ void dag_hybrid_scheduler::submit(dag_node_ptr node) {
   for (auto req : node->get_requirements()) {
     if (!req->get_operation()->is_requirement()) {
       if (!req->is_submitted()) {
-        register_error(__hipsycl_here(), error_info{"dag_direct_scheduler: Direct scheduler does not "
+        register_error(__hipsycl_here(), error_info{"dag_hybrid_scheduler: Direct scheduler does not "
                                                     "support processing multiple unsubmitted nodes",
                                                     error_type::feature_not_supported});
         abort_submission(node);

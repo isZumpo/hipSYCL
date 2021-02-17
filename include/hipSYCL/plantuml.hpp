@@ -62,7 +62,7 @@ class plantuml {
       outputfile << "\n\t\telement size: " << b->get_element_size();
       auto range = b->get_data_region()->get_num_elements();
       outputfile << "\n\t\tnum elements: " << range[0] << "x" << range[1] << "x" << range[2];
-      outputfile << "\n\t\tacces target: " << b->get_access_target();
+      outputfile << "\n\t\taccess target: " << b->get_access_target();
       outputfile << "\n\t\thas device data location: " << b->has_device_data_location();
     }
   }
