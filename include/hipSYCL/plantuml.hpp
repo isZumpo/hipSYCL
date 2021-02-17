@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <vector>
+#include <fstream>
 
 #include "hipSYCL/runtime/dag_manager.hpp"
 #include "hipSYCL/runtime/device_id.hpp"
@@ -16,90 +17,92 @@ class plantuml {
   std::vector<std::pair<std::size_t, std::size_t>> dependencies;
   int call = 0;
 
+  std::ofstream outputfile{"plantuml_output.txt"};
+
   void printOperationType(dag_node_ptr node) {
 
     if(node->get_operation()->is_requirement()) {
-      std::cout << "REQUIREMENT" << std::endl;
+      outputfile << "REQUIREMENT" << std::endl;
     }
     if (typeid(*node->get_operation()) == typeid(kernel_operation)) {
       kernel_operation* k = dynamic_cast<kernel_operation*>(node->get_operation());
 
-      std::cout << "\tkernel ";
+      outputfile << "\tkernel ";
 
       switch (k->get_launcher().find_launcher(node->get_assigned_device().get_backend())->get_kernel_type()) {
         case kernel_type::single_task:
-          std::cout << "\tsingle_task";
+          outputfile << "\tsingle_task";
           break;
         case kernel_type::basic_parallel_for:
-          std::cout << "\tbasic_parallel_for";
+          outputfile << "\tbasic_parallel_for";
           break;
         case kernel_type::ndrange_parallel_for:
-          std::cout << "\tndrange_parallel_for";
+          outputfile << "\tndrange_parallel_for";
           break;
         case kernel_type::hierarchical_parallel_for:
-          std::cout << "\thierarchical_parallel_for";
+          outputfile << "\thierarchical_parallel_for";
           break;
         case kernel_type::scoped_parallel_for:
-          std::cout << "\tscoped_parallel_for";
+          outputfile << "\tscoped_parallel_for";
           break;
         case kernel_type::custom:
-          std::cout << "\tcustom";
+          outputfile << "\tcustom";
           break;
       }
     } else if (typeid(*node->get_operation()) == typeid(memset_operation)) {
-      std::cout << "\tmemset";
+      outputfile << "\tmemset";
     } else if (typeid(*node->get_operation()) == typeid(prefetch_operation)) {
-      std::cout << "\tprefetch";
+      outputfile << "\tprefetch";
     } else if (typeid(*node->get_operation()) == typeid(memcpy_operation)) {
-      std::cout << "\tmemcpy";
+      outputfile << "\tmemcpy";
     } else if (typeid(*node->get_operation()) == typeid(buffer_memory_requirement)) {
       buffer_memory_requirement* b = dynamic_cast<buffer_memory_requirement*>(node->get_operation());
-      std::cout << "\tbuffer memory";
-      std::cout << "\n\t\taccess mode: " << b->get_access_mode();
-      std::cout << "\n\t\telement size: " << b->get_element_size();
+      outputfile << "\tbuffer memory";
+      outputfile << "\n\t\taccess mode: " << b->get_access_mode();
+      outputfile << "\n\t\telement size: " << b->get_element_size();
       auto range = b->get_data_region()->get_num_elements();
-      std::cout << "\n\t\tnum elements: " << range[0] << "x" << range[1] << "x" << range[2];
-      std::cout << "\n\t\tacces target: " << b->get_access_target();
-      std::cout << "\n\t\thas device data location: " << b->has_device_data_location();
+      outputfile << "\n\t\tnum elements: " << range[0] << "x" << range[1] << "x" << range[2];
+      outputfile << "\n\t\tacces target: " << b->get_access_target();
+      outputfile << "\n\t\thas device data location: " << b->has_device_data_location();
     }
   }
 
   void printBackend(dag_node_ptr node) {
     if (node->get_assigned_device().is_host()) {
-      std::cout << "\tHOST";
+      outputfile << "\tHOST";
     }
 
     switch (node->get_assigned_device().get_backend()) {
       case backend_id::omp:
-        std::cout << "\tOMP";
+        outputfile << "\tOMP";
         break;
       case backend_id::cuda:
-        std::cout << "\tCUDA";
+        outputfile << "\tCUDA";
         break;
       case backend_id::hip:
-        std::cout << "\tHIP";
+        outputfile << "\tHIP";
         break;
     }
   }
 
   void printNode(dag_node_ptr node) {
-    std::cout << "class N" << node->get_node_id() << " {" << std::endl;
+    outputfile << "class N" << node->get_node_id() << " {" << std::endl;
     printOperationType(node);
-    std::cout << std::endl;
+    outputfile << std::endl;
     printBackend(node);
 
-    std::cout << std::endl << "}" << std::endl;
+    outputfile << std::endl << "}" << std::endl;
   }
 
   void printReq(dag_node_ptr node, dag_node_ptr req) {
     if (req->get_operation()->is_data_transfer()) {
-      std::cout << "N" << node->get_node_id() << "<-- \"data_transfer\""
+      outputfile << "N" << node->get_node_id() << "<-- \"data_transfer\""
                 << "N" << req->get_node_id() << std::endl;
     } else if (req->get_operation()->is_requirement()) {
-      std::cout << "N" << node->get_node_id() << "<-- \"req\""
+      outputfile << "N" << node->get_node_id() << "<-- \"req\""
                 << "N" << req->get_node_id() << std::endl;
     } else {
-      std::cout << "N" << node->get_node_id() << "<--"
+      outputfile << "N" << node->get_node_id() << "<--"
                 << "N" << req->get_node_id() << std::endl;
     }
   }
@@ -117,7 +120,7 @@ class plantuml {
     auto dep = std::make_pair(node->get_node_id(), req->get_node_id());
     if (!std::count(dependencies.begin(), dependencies.end(), dep)) {
       dependencies.push_back(dep);
-      std::cout << "N" << dep.first << " <-- "
+      outputfile << "N" << dep.first << " <-- "
                 << "N" << dep.second << " :" << call << std::endl;
     }
   }
@@ -133,11 +136,13 @@ class plantuml {
 
  public:
   void print(dag dag) {
-    std::cout << "package  \"dag_" << call << "\" #DDDDDD {" << std::endl;
+
+
+    outputfile << "package  \"dag_" << call << "\" #DDDDDD {" << std::endl;
     if (true) {  // Recursive dependencies
       for (auto node : dag.get_command_groups()) {
         addNode(node);
-        std::cout << "commandgroupdag" << call << " -> N" << node->get_node_id() << std::endl; 
+        outputfile << "commandgroupdag" << call << " -> N" << node->get_node_id() << std::endl; 
         for (auto req : node->get_requirements()) {
           recReq(node, req);
         }
@@ -151,7 +156,7 @@ class plantuml {
         }
       }
     }
-    std::cout << std::endl << "}" << std::endl;
+    outputfile << std::endl << "}" << std::endl;
 
     call++;
   }
