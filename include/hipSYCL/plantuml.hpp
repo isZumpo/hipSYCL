@@ -17,7 +17,7 @@ class plantuml {
   std::vector<std::pair<std::size_t, std::size_t>> dependencies;
   int call = 0;
 
-  std::ofstream outputfile{"plantuml_output.txt"};
+  std::ofstream outputfile{"plantuml_output.plantuml"};
 
   void printOperationType(dag_node_ptr node) {
 
