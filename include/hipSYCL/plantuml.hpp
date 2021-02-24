@@ -19,7 +19,15 @@ class plantuml {
 
   std::ofstream outputfile{"plantuml_output.plantuml"};
 
-  void printOperationType(dag_node_ptr node) {
+  void printOperationType (dag_node_ptr node) {
+    if(node->get_operation()->is_requirement()) {
+      outputfile << "R";
+    } else {
+      outputfile << "K";
+    }
+  }
+
+  void printOperationInfo(dag_node_ptr node) {
 
     if(node->get_operation()->is_requirement()) {
       outputfile << "REQUIREMENT" << std::endl;
@@ -85,9 +93,27 @@ class plantuml {
     }
   }
 
+  void printBackendColor(dag_node_ptr node) {
+    switch (node->get_assigned_device().get_backend()) {
+      case backend_id::omp:
+        outputfile << "#0e93cc";
+        break;
+      case backend_id::cuda:
+        outputfile << "#14d111";
+        break;
+      case backend_id::hip:
+        outputfile << "#cc0e21";
+        break;
+    }
+  }
+
   void printNode(dag_node_ptr node) {
-    outputfile << "class N" << node->get_node_id() << " {" << std::endl;
+    outputfile << "class N" << node->get_node_id() << " << (";
     printOperationType(node);
+    outputfile << ",";
+    printBackendColor(node);
+    outputfile << ") >> {\n";
+    printOperationInfo(node);
     outputfile << std::endl;
     printBackend(node);
 
@@ -142,7 +168,7 @@ class plantuml {
     if (true) {  // Recursive dependencies
       for (auto node : dag.get_command_groups()) {
         addNode(node);
-        outputfile << "commandgroupdag" << call << " -> N" << node->get_node_id() << std::endl; 
+        // outputfile << "commandgroupdag" << call << " -> N" << node->get_node_id() << std::endl; 
         for (auto req : node->get_requirements()) {
           recReq(node, req);
         }
