@@ -318,20 +318,23 @@ result cuda_queue::submit_queue_wait_for(std::shared_ptr<dag_node_event> evt) {
 
 result cuda_queue::submit_external_wait_for(dag_node_ptr node) {
 
-  dag_node_ptr* user_data = new dag_node_ptr;
-  assert(user_data);
-  *user_data = node;
+  // dag_node_ptr* user_data = new dag_node_ptr;
+  // assert(user_data);
+  // *user_data = node;
 
-  auto err = 
-      cudaStreamAddCallback(_stream, host_synchronization_callback,
-                           reinterpret_cast<void *>(user_data), 0);
+  // auto err = 
+  //     cudaStreamAddCallback(_stream, host_synchronization_callback,
+  //                          reinterpret_cast<void *>(user_data), 0);
 
-  if (err != cudaSuccess) {
-    return make_error(__hipsycl_here(),
-                      error_info{"cuda_queue: Couldn't submit stream callback",
-                                 error_code{"CUDA", err}});
-  }
+  // if (err != cudaSuccess) {
+  //   return make_error(__hipsycl_here(),
+  //                     error_info{"cuda_queue: Couldn't submit stream callback",
+  //                                error_code{"CUDA", err}});
+  // }
   
+  // Dirt fix as CUDA did not wait for OMP dependencies, as the previous way of doing it (above) was non-blocking 
+  // and CUDA kernels ended up being submitted without waiting.
+  node->wait();
   return make_success();
 }
 
