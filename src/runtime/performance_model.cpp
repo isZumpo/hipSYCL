@@ -1,7 +1,7 @@
 /*
  * This file is part of hipSYCL, a SYCL implementation based on CUDA/HIP
  *
- * Copyright (c) 2020 Aksel Alpay
+ * Copyright (c) 2021 Aksel Alpay
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,27 +25,40 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HIPSYCL_DAG_HYBRID_SCHEDULER_HPP
-#define HIPSYCL_DAG_HYBRID_SCHEDULER_HPP
-
-#include <functional>
-
-#include "dag.hpp"
-#include "operations.hpp"
+#include "hipSYCL/runtime/performance_model.hpp"
 
 namespace hipsycl {
 namespace rt {
 
-class dag_hybrid_scheduler {
- public:
-  void initialize_devices();
-  void submit(dag dag);
+void random_model::assign_devices(dag &dag) {
+  for (auto node : dag.get_command_groups()) {
+    device_id target_device;
+    if (node->get_operation()->is_requirement()) {
+      if (!node->get_execution_hints().has_hint<hints::bind_to_device>()) {
+        register_error(__hipsycl_here(), error_info{"random_model: Random performance model does not "
+                                                    "support DAG nodes not bound to devices.",
+                                                    error_type::feature_not_supported});
+        abort_submission(node);
+        return;
+      }
+      // Use execution hint device for buffer memory specific nodes.
+      target_device = node->get_execution_hints().get_hint<hints::bind_to_device>()->get_device_id();
+    } else {
+      srand(rand() ^ time(NULL));
+      target_device = _devices[rand() % _devices.size()];
+    }
+    node->assign_to_device(target_device);
 
- private:
-  std::vector<device_id> _devices;
-};
-
+    // Assign all requirments to the same kernel that requires them.
+    for (auto req : node->get_requirements()) {
+      if (req->is_complete() || req->is_submitted()) {
+        // Seems to fix the issue of kernel and requirements are not assigned to the same device.
+        continue;
+      }
+      req->assign_to_device(target_device);
+    }
+  }
 }
 }
 
-#endif
+}

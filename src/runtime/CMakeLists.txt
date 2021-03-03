@@ -22,7 +22,9 @@ add_library(hipSYCL-rt SHARED
   dag_submitted_ops.cpp
   generic/async_worker.cpp
   hw_model/memcpy.cpp
-  serialization/serialization.cpp)
+  serialization/serialization.cpp
+  timetable.cpp
+  performance_model.cpp)
 
 # syclcc already knows about these include directories, but clangd-based tooling does not.
 # Specifying them explicitly ensures that IDEs can resolve all hipSYCL includes correctly.

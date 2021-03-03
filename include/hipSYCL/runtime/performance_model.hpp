@@ -1,7 +1,7 @@
 /*
  * This file is part of hipSYCL, a SYCL implementation based on CUDA/HIP
  *
- * Copyright (c) 2020 Aksel Alpay
+ * Copyright (c) 2021 Aksel Alpay
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,24 +25,52 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HIPSYCL_DAG_HYBRID_SCHEDULER_HPP
-#define HIPSYCL_DAG_HYBRID_SCHEDULER_HPP
+#ifndef HIPSYCL_PERFORMANCE_MODEL_HPP
+#define HIPSYCL_PERFORMANCE_MODEL_HPP
 
 #include <functional>
 
 #include "dag.hpp"
-#include "operations.hpp"
+#include "hipSYCL/runtime/hardware.hpp"
+#include "hipSYCL/runtime/timetable.hpp"
 
 namespace hipsycl {
 namespace rt {
 
-class dag_hybrid_scheduler {
+class performance_model {
  public:
-  void initialize_devices();
-  void submit(dag dag);
+  virtual ~performance_model() {}
+  virtual void assign_devices(dag &dag){};
+
+ protected:
+  void abort_submission(dag_node_ptr node) {
+    for (auto req : node->get_requirements()) {
+      if (!req->is_submitted()) {
+        req->cancel();
+      }
+    }
+    node->cancel();
+  }
+};
+
+class random_model : public performance_model {
+ public:
+  random_model(std::vector<device_id> &devices) : _devices(devices) {}
+  void assign_devices(dag &dag);
 
  private:
   std::vector<device_id> _devices;
+};
+
+class dynamic_model : public performance_model {
+ public:
+  dynamic_model(std::vector<device_id> &devices) : _devices(devices) {
+    // TODO assign timetable
+  }
+
+ private:
+  std::vector<device_id> _devices;
+  timetable _timetable;
 };
 
 }

@@ -1,7 +1,7 @@
 /*
  * This file is part of hipSYCL, a SYCL implementation based on CUDA/HIP
  *
- * Copyright (c) 2020 Aksel Alpay
+ * Copyright (c) 2021 Aksel Alpay
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,24 +25,33 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HIPSYCL_DAG_HYBRID_SCHEDULER_HPP
-#define HIPSYCL_DAG_HYBRID_SCHEDULER_HPP
+#ifndef HIPSYCL_TIMETABLE_HPP
+#define HIPSYCL_TIMETABLE_HPP
 
 #include <functional>
+#include <map>
+#include <unordered_map>
 
-#include "dag.hpp"
-#include "operations.hpp"
+#include "hipSYCL/runtime/hardware.hpp"
 
 namespace hipsycl {
 namespace rt {
 
-class dag_hybrid_scheduler {
+class timetable {
  public:
-  void initialize_devices();
-  void submit(dag dag);
+  /**
+   * Registers given time in timetable for device and kernel combination
+   *
+   * @param kernel_name the name of the kernel.
+   * @param device which the kernel ran on.
+   * @param time the kernel took to execute.
+   */
+  void register_time(std::string kernel_name, device_id device, double time);
+
+  double get_time(std::string kernel_name, device_id device);
 
  private:
-  std::vector<device_id> _devices;
+  std::map<std::string, std::unordered_map<device_id, double>> _table;
 };
 
 }

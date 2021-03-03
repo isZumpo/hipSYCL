@@ -115,14 +115,16 @@ void dag_manager::flush_async()
       // makes it safe to submit them in this order to the direct scheduler.
       // static int dag_number = 0;
       // std::cout << "Dag number: " << dag_number++ << std::endl;
-      for(auto node : new_dag.get_command_groups()){
-        HIPSYCL_DEBUG_INFO
-            << "dag_manager [async]: Submitting node to direct scheduler!"
-            << std::endl;
-        // _direct_scheduler.submit(node);
-        _hybrid_scheduler.submit(node);
+      // for(auto node : new_dag.get_command_groups()){
+      //   HIPSYCL_DEBUG_INFO
+      //       << "dag_manager [async]: Submitting node to direct scheduler!"
+      //       << std::endl;
+      //   // _direct_scheduler.submit(node);
+      //   _hybrid_scheduler.submit(node);
       
-      }
+      // }
+      
+      _hybrid_scheduler.submit(new_dag);
       static plantuml plant;
       plant.print(new_dag);
     } else {

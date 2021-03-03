@@ -35,6 +35,7 @@
 #include "hipSYCL/runtime/application.hpp"
 #include "hipSYCL/runtime/executor.hpp"
 #include "hipSYCL/runtime/hardware.hpp"
+#include "hipSYCL/runtime/performance_model.hpp"
 #include "hipSYCL/runtime/runtime.hpp"
 #include "hipSYCL/runtime/serialization/serialization.hpp"
 
@@ -243,81 +244,60 @@ void dag_hybrid_scheduler::initialize_devices() {
   });
 
   if (this->_devices.empty()) {
-    register_error(__hipsycl_here(), error_info{"dag_scheduler: No devices available", error_type::runtime_error});
+    register_error(__hipsycl_here(), error_info{"dag_hybrid_scheduler: No devices available", error_type::runtime_error});
   }
 }
 
-void dag_hybrid_scheduler::submit(dag_node_ptr node) {
+void dag_hybrid_scheduler::submit(dag dag) {
   device_id target_device;
   if (_devices.empty()) {
     initialize_devices();
     std::cout << "Found " << _devices.size() << " devices" << std::endl;
   }
 
-  // Assign the correct device to the current node.
-  if (node->get_operation()->is_requirement()) {
-    if (!node->get_execution_hints().has_hint<hints::bind_to_device>()) {
-      register_error(__hipsycl_here(), error_info{"dag_hybrid_scheduler: Direct scheduler does not "
-                                                  "support DAG nodes not bound to devices.",
-                                                  error_type::feature_not_supported});
-      abort_submission(node);
-      return;
-    }
-    // Use execution hint device for buffer memory specific nodes.
-    target_device = node->get_execution_hints().get_hint<hints::bind_to_device>()->get_device_id();
-  } else {
-    srand(rand() ^ time(NULL));
-    target_device = _devices[rand() % _devices.size()];
-  }
+  static random_model model(_devices);
 
-  node->assign_to_device(target_device);
+  model.assign_devices(dag);
 
-  //Assign all requirments to the same kernel that requires them.
-  for (auto req : node->get_requirements()) {
-    if (req->is_complete() || req->is_submitted()) {
-      // Seems to fix the issue of kernel and requirements are not assigned to the same device.
-      continue;
-    }
-    req->assign_to_device(target_device);
-  }
+  for (auto node : dag.get_command_groups()) {
+    for (auto req : node->get_requirements()) {
+      if (!req->get_operation()->is_requirement()) {
+        if (!req->is_submitted()) {
+          register_error(__hipsycl_here(), error_info{"dag_hybrid_scheduler: Direct scheduler does not "
+                                                      "support processing multiple unsubmitted nodes",
+                                                      error_type::feature_not_supported});
+          abort_submission(node);
+          return;
+        }
+      } else {
+        result res = submit_requirement(req);
 
-  for (auto req : node->get_requirements()) {
-    if (!req->get_operation()->is_requirement()) {
-      if (!req->is_submitted()) {
-        register_error(__hipsycl_here(), error_info{"dag_hybrid_scheduler: Direct scheduler does not "
-                                                    "support processing multiple unsubmitted nodes",
-                                                    error_type::feature_not_supported});
-        abort_submission(node);
-        return;
+        if (!res.is_success()) {
+          register_error(res);
+          abort_submission(node);
+          return;
+        }
       }
-    } else {
-      result res = submit_requirement(req);
+    }
+
+    if (node->get_operation()->is_requirement()) {
+      result res = submit_requirement(node);
 
       if (!res.is_success()) {
         register_error(res);
         abort_submission(node);
         return;
       }
+    } else {
+      // hipSYCL: TODO What if this is an explicit copy between two device backends through
+      // host?
+      backend_executor *exec = select_executor(node, node->get_operation());
+      rt::submit(exec, node, node->get_operation());
     }
+    // Register node as submitted with the runtime
+    // (only relevant for queue::wait() operations)
+    application::dag().register_submitted_ops(node);
   }
-
-  if (node->get_operation()->is_requirement()) {
-    result res = submit_requirement(node);
-
-    if (!res.is_success()) {
-      register_error(res);
-      abort_submission(node);
-      return;
-    }
-  } else {
-    // hipSYCL: TODO What if this is an explicit copy between two device backends through
-    // host?
-    backend_executor *exec = select_executor(node, node->get_operation());
-    rt::submit(exec, node, node->get_operation());
-  }
-  // Register node as submitted with the runtime
-  // (only relevant for queue::wait() operations)
-  application::dag().register_submitted_ops(node);
 }
 
 }

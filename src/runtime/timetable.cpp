@@ -1,7 +1,7 @@
 /*
  * This file is part of hipSYCL, a SYCL implementation based on CUDA/HIP
  *
- * Copyright (c) 2020 Aksel Alpay
+ * Copyright (c) 2021 Aksel Alpay
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,27 +25,34 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HIPSYCL_DAG_HYBRID_SCHEDULER_HPP
-#define HIPSYCL_DAG_HYBRID_SCHEDULER_HPP
-
-#include <functional>
-
-#include "dag.hpp"
-#include "operations.hpp"
+#include "hipSYCL/runtime/timetable.hpp"
 
 namespace hipsycl {
 namespace rt {
 
-class dag_hybrid_scheduler {
- public:
-  void initialize_devices();
-  void submit(dag dag);
+void timetable::register_time(std::string kernel_name, device_id device, double time) {
+  // Add kernel if not in timetable
+  if (_table.count(kernel_name) <= 0) {
+    _table[kernel_name] = {{device, time}};
+    return;
+  }
 
- private:
-  std::vector<device_id> _devices;
-};
+  auto device_table = _table[kernel_name];
+  // If kernel entry already exists for device, take the average, else create new entry
+  if (device_table.count(device) > 0) {
+    auto original_time = device_table[device];
+    device_table[device] = (original_time + time) / 2.0; // TODO look up how they do it in the paper
+  } else {
+    device_table[device] = time;
+  }
+}
 
+double timetable::get_time(std::string kernel_name, device_id device) {
+  if (_table.count(kernel_name) > 0 && _table[kernel_name].count(device) > 0) {
+    return _table[kernel_name][device];
+  }
+
+  return -1.0;
 }
 }
-
-#endif
+}
