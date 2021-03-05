@@ -299,6 +299,5 @@ void dag_hybrid_scheduler::submit(dag dag) {
     application::dag().register_submitted_ops(node);
   }
 }
-
 }
 }

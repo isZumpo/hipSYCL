@@ -67,6 +67,7 @@ class dynamic_model : public performance_model {
   dynamic_model(std::vector<device_id> &devices) : _devices(devices) {
     // TODO assign timetable
   }
+  void assign_devices(dag &dag);
 
  private:
   std::vector<device_id> _devices;

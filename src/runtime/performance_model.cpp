@@ -27,6 +27,8 @@
 
 #include "hipSYCL/runtime/performance_model.hpp"
 
+#include "hipSYCL/runtime/instrumentation.hpp"
+
 namespace hipsycl {
 namespace rt {
 
@@ -57,7 +59,40 @@ void random_model::assign_devices(dag &dag) {
       }
       req->assign_to_device(target_device);
     }
+
+    // Listen to events and add to timetable
+    if (!node->get_operation()->is_requirement()) {
+      std::thread profilingThread(
+          [&node](operation *operation) {
+            node->get_operation()->get_instrumentations().instrument<rt::timestamp_profiler>();
+
+            std::string kernel_name = "Unknown";
+            if (typeid(*node->get_operation()) == typeid(kernel_operation)) {
+              kernel_operation *k = dynamic_cast<kernel_operation *>(node->get_operation());
+              kernel_name = k->_kernel_name;
+            }
+
+            auto &profiler = node->get_operation()->get_instrumentations().await<rt::timestamp_profiler>();
+            auto start = profiler.await_event(rt::timestamp_profiler::event::operation_started);
+            auto end = profiler.await_event(rt::timestamp_profiler::event::operation_finished);
+
+            std::cout << "\n ** task " << kernel_name << " started at: "
+                      << std::chrono::duration_cast<std::chrono::microseconds>(start.time_since_epoch()).count()
+                      << " and finished at: "
+                      << std::chrono::duration_cast<std::chrono::microseconds>(end.time_since_epoch()).count()
+                      << " for a total of: "
+                      << (std::chrono::duration_cast<std::chrono::microseconds>(end.time_since_epoch()).count() -
+                          std::chrono::duration_cast<std::chrono::microseconds>(start.time_since_epoch()).count())
+                      << " μs" << std::endl
+                      << std::endl
+                      << std::endl;
+          },
+          node->get_operation());
+
+      profilingThread.detach();
+    }
   }
+  std::this_thread::sleep_for(std::chrono::milliseconds(250));
 }
 }
 

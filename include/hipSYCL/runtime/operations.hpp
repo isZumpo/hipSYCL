@@ -291,9 +291,10 @@ public:
   result dispatch(operation_dispatcher* dispatcher) override {
     return dispatcher->dispatch_kernel(this);
   }
+  
+  std::string _kernel_name; // TODO create getter instead, so it can be private
 
 private:
-  std::string _kernel_name;
   kernel_launcher _launcher;
   std::vector<memory_requirement*> _requirements;
 };
