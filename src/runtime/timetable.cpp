@@ -31,53 +31,65 @@ namespace hipsycl {
 namespace rt {
 
 void timetable::register_time(std::string kernel_name, device_id device, float time) {
+  std::lock_guard<std::mutex> lock(_timetable_mutex);
+
   // Add kernel if not in timetable
   if (_table.count(kernel_name) <= 0) {
-    // Tuple is of <count, sum, average>
-    _table[kernel_name] = {{device, std::make_tuple(1, time, time)}};
+    _table[kernel_name] = {{device, timetable_entry{.count = 1, .sum = time, .average = time}}};
     return;
   }
 
   auto device_table = _table[kernel_name];
   // If kernel entry already exists for device, update count, sum and average
   if (device_table.count(device) > 0) {
-
-    auto tuple = device_table[device];
-    ++std::get<0>(tuple);
-    std::get<1>(tuple) += time;
-    auto average = std::get<2>(tuple);
-    std::get<2>(tuple) = (time + average) / 2.f;
-
+    auto entry = device_table[device];
+    entry.count += 1;
+    entry.sum += time;
+    entry.average = (time + entry.average) / 2.f;  // TODO might give wrong unwanted average
+    device_table[device] = entry;
   } else {
-    device_table[device] = std::make_tuple(1, time, time);
+    device_table[device] = timetable_entry{.count = 1, .sum = time, .average = time};
   }
   _table[kernel_name] = device_table;
 }
 
-int timetable::get_count(std::string kernel_name, device_id device) {
+timetable_entry timetable::get_entry(std::string kernel_name, device_id device) {
   if (_table.count(kernel_name) > 0 && _table[kernel_name].count(device) > 0) {
-    return std::get<0>(_table[kernel_name][device]);
+    return _table[kernel_name][device];
   }
 
-  return -1.0;
+  return timetable_entry{.count = -1, .sum = -1.0, .average = -1.0};
 }
 
-float timetable::get_sum(std::string kernel_name, device_id device) {
-  if (_table.count(kernel_name) > 0 && _table[kernel_name].count(device) > 0) {
-    return std::get<1>(_table[kernel_name][device]);
+void timetable::print() {
+  std::lock_guard<std::mutex> lock(_timetable_mutex);
+
+  std::cout << "\nTimetable entries for all kernels: \n";
+  for (const auto &kernel_device : _table) {
+    std::cout << "-------------  " << kernel_device.first << std::endl;
+    for (const auto &device_entry : kernel_device.second) {
+      std::cout << "device id: " << device_entry.first.get_id() << " on backend ";
+      switch (device_entry.first.get_backend()) {
+        case backend_id::omp:
+          std::cout << "OMP";
+          break;
+        case backend_id::cuda:
+          std::cout << "CUDA";
+          break;
+        case backend_id::hip:
+          std::cout << "HIP";
+          break;
+        default:
+          std::cout << "UNKNOWN";
+          break;
+      }
+
+      std::cout << "\t[count: " << device_entry.second.count << ", sum: " << device_entry.second.sum
+                << ", average: " << device_entry.second.average << "]" << std::endl;
+    }
+
+    std::cout << "-------------" << std::endl;
   }
-
-  return -1.0;
 }
-
-float timetable::get_average(std::string kernel_name, device_id device) {
-  if (_table.count(kernel_name) > 0 && _table[kernel_name].count(device) > 0) {
-    return std::get<2>(_table[kernel_name][device]);
-  }
-
-  return -1.0;
-}
-
-
 }
 }

@@ -59,11 +59,41 @@ void random_model::assign_devices(dag &dag) {
       }
       req->assign_to_device(target_device);
     }
+  }
+}
+
+void dynamic_model::assign_devices(dag &dag) {
+  for (auto node : dag.get_command_groups()) {
+    device_id target_device;
+    if (node->get_operation()->is_requirement()) {
+      if (!node->get_execution_hints().has_hint<hints::bind_to_device>()) {
+        register_error(__hipsycl_here(), error_info{"dynamic_model: Dynamic performance model does not "
+                                                    "support DAG nodes not bound to devices.",
+                                                    error_type::feature_not_supported});
+        abort_submission(node);
+        return;
+      }
+      // Use execution hint device for buffer memory specific nodes.
+      target_device = node->get_execution_hints().get_hint<hints::bind_to_device>()->get_device_id();
+    } else {
+      srand(rand() ^ time(NULL));
+      target_device = _devices[rand() % _devices.size()];
+    }
+    node->assign_to_device(target_device);
+
+    // Assign all requirments to the same kernel that requires them.
+    for (auto req : node->get_requirements()) {
+      if (req->is_complete() || req->is_submitted()) {
+        // Seems to fix the issue of kernel and requirements are not assigned to the same device.
+        continue;
+      }
+      req->assign_to_device(target_device);
+    }
 
     // Listen to events and add to timetable
     if (!node->get_operation()->is_requirement()) {
       std::thread profilingThread(
-          [&node](operation *operation) {
+          [](timetable *timetable, dag_node_ptr node) {
             node->get_operation()->get_instrumentations().instrument<rt::timestamp_profiler>();
 
             std::string kernel_name = "Unknown";
@@ -75,24 +105,16 @@ void random_model::assign_devices(dag &dag) {
             auto &profiler = node->get_operation()->get_instrumentations().await<rt::timestamp_profiler>();
             auto start = profiler.await_event(rt::timestamp_profiler::event::operation_started);
             auto end = profiler.await_event(rt::timestamp_profiler::event::operation_finished);
+            auto duration = (std::chrono::duration_cast<std::chrono::microseconds>(end.time_since_epoch()).count() -
+                         std::chrono::duration_cast<std::chrono::microseconds>(start.time_since_epoch()).count());
 
-            std::cout << "\n ** task " << kernel_name << " started at: "
-                      << std::chrono::duration_cast<std::chrono::microseconds>(start.time_since_epoch()).count()
-                      << " and finished at: "
-                      << std::chrono::duration_cast<std::chrono::microseconds>(end.time_since_epoch()).count()
-                      << " for a total of: "
-                      << (std::chrono::duration_cast<std::chrono::microseconds>(end.time_since_epoch()).count() -
-                          std::chrono::duration_cast<std::chrono::microseconds>(start.time_since_epoch()).count())
-                      << " μs" << std::endl
-                      << std::endl
-                      << std::endl;
+            timetable->register_time(kernel_name, node->get_assigned_device(), duration);
           },
-          node->get_operation());
+          _timetable.get(), node);
 
       profilingThread.detach();
     }
   }
-  std::this_thread::sleep_for(std::chrono::milliseconds(250));
 }
 }
 

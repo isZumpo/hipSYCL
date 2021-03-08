@@ -29,13 +29,26 @@
 #define HIPSYCL_TIMETABLE_HPP
 
 #include <functional>
+#include <iostream>
 #include <map>
+#include <mutex>
 #include <unordered_map>
 
 #include "hipSYCL/runtime/hardware.hpp"
 
 namespace hipsycl {
 namespace rt {
+
+/**
+ * @param count times the kernel has been executed.
+ * @param sum the total time the kernel has been run.
+ * @param average the average time the kernel takes to run.
+ */
+struct timetable_entry {
+  int count; /**< times the kernel has been executed. */
+  float sum; /**< the total time the kernel has been run. */
+  float average; /**< the average time the kernel takes to run. */
+};
 
 class timetable {
  public:
@@ -44,18 +57,16 @@ class timetable {
    *
    * @param kernel_name the name of the kernel.
    * @param device which the kernel ran on.
-   * @param count times the kernel has been executed.
-   * @param sum the total time the kernel has been run.
-   * @param average the average time the kernel takes to run.
    */
   void register_time(std::string kernel_name, device_id device, float time);
 
-  int get_count(std::string kernel_name, device_id device);
-  float get_sum(std::string kernel_name, device_id device);
-  float get_average(std::string kernel_name, device_id device);
+  timetable_entry get_entry(std::string kernel_name, device_id device);
+
+  void print();
 
  private:
-  std::map<std::string, std::unordered_map<device_id, std::tuple<int, float, float>>> _table;
+  std::map<std::string, std::unordered_map<device_id, timetable_entry>> _table;
+  std::mutex _timetable_mutex;
 };
 
 }

@@ -255,7 +255,7 @@ void dag_hybrid_scheduler::submit(dag dag) {
     std::cout << "Found " << _devices.size() << " devices" << std::endl;
   }
 
-  static random_model model(_devices);
+  static dynamic_model model(_devices);
 
   model.assign_devices(dag);
 

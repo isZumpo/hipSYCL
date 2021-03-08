@@ -64,14 +64,18 @@ class random_model : public performance_model {
 
 class dynamic_model : public performance_model {
  public:
+  ~dynamic_model() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    _timetable->print();
+  }
   dynamic_model(std::vector<device_id> &devices) : _devices(devices) {
-    // TODO assign timetable
+    _timetable = std::make_unique<timetable>();
   }
   void assign_devices(dag &dag);
 
  private:
   std::vector<device_id> _devices;
-  timetable _timetable;
+  std::unique_ptr<timetable> _timetable;
 };
 
 }
