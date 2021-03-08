@@ -30,29 +30,54 @@
 namespace hipsycl {
 namespace rt {
 
-void timetable::register_time(std::string kernel_name, device_id device, double time) {
+void timetable::register_time(std::string kernel_name, device_id device, float time) {
   // Add kernel if not in timetable
   if (_table.count(kernel_name) <= 0) {
-    _table[kernel_name] = {{device, time}};
+    // Tuple is of <count, sum, average>
+    _table[kernel_name] = {{device, std::make_tuple(1, time, time)}};
     return;
   }
 
   auto device_table = _table[kernel_name];
-  // If kernel entry already exists for device, take the average, else create new entry
+  // If kernel entry already exists for device, update count, sum and average
   if (device_table.count(device) > 0) {
-    auto original_time = device_table[device];
-    device_table[device] = (original_time + time) / 2.0; // TODO look up how they do it in the paper
+
+    auto tuple = device_table[device];
+    ++std::get<0>(tuple);
+    std::get<1>(tuple) += time;
+    auto average = std::get<2>(tuple);
+    std::get<2>(tuple) = (time + average) / 2.f;
+
   } else {
-    device_table[device] = time;
+    device_table[device] = std::make_tuple(1, time, time);
   }
+  _table[kernel_name] = device_table;
 }
 
-double timetable::get_time(std::string kernel_name, device_id device) {
+int timetable::get_count(std::string kernel_name, device_id device) {
   if (_table.count(kernel_name) > 0 && _table[kernel_name].count(device) > 0) {
-    return _table[kernel_name][device];
+    return std::get<0>(_table[kernel_name][device]);
   }
 
   return -1.0;
 }
+
+float timetable::get_sum(std::string kernel_name, device_id device) {
+  if (_table.count(kernel_name) > 0 && _table[kernel_name].count(device) > 0) {
+    return std::get<1>(_table[kernel_name][device]);
+  }
+
+  return -1.0;
+}
+
+float timetable::get_average(std::string kernel_name, device_id device) {
+  if (_table.count(kernel_name) > 0 && _table[kernel_name].count(device) > 0) {
+    return std::get<2>(_table[kernel_name][device]);
+  }
+
+  return -1.0;
+}
+
+
 }
 }

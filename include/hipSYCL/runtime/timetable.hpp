@@ -44,14 +44,18 @@ class timetable {
    *
    * @param kernel_name the name of the kernel.
    * @param device which the kernel ran on.
-   * @param time the kernel took to execute.
+   * @param count times the kernel has been executed.
+   * @param sum the total time the kernel has been run.
+   * @param average the average time the kernel takes to run.
    */
-  void register_time(std::string kernel_name, device_id device, double time);
+  void register_time(std::string kernel_name, device_id device, float time);
 
-  double get_time(std::string kernel_name, device_id device);
+  int get_count(std::string kernel_name, device_id device);
+  float get_sum(std::string kernel_name, device_id device);
+  float get_average(std::string kernel_name, device_id device);
 
  private:
-  std::map<std::string, std::unordered_map<device_id, double>> _table;
+  std::map<std::string, std::unordered_map<device_id, std::tuple<int, float, float>>> _table;
 };
 
 }
