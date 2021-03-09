@@ -45,7 +45,7 @@ void timetable::register_time(std::string kernel_name, device_id device, float t
     auto entry = device_table[device];
     entry.count += 1;
     entry.sum += time;
-    entry.average = (time + entry.average) / 2.f;  // TODO might give wrong unwanted average
+    entry.average = entry.sum / entry.count;  // TODO might give wrong unwanted average
     device_table[device] = entry;
   } else {
     device_table[device] = timetable_entry{.count = 1, .sum = time, .average = time};
@@ -65,6 +65,7 @@ void timetable::print() {
   std::lock_guard<std::mutex> lock(_timetable_mutex);
 
   std::cout << "\nTimetable entries for all kernels: \n";
+  float total_cuda_time = 0, total_omp_time = 0;
   for (const auto &kernel_device : _table) {
     std::cout << "-------------  " << kernel_device.first << std::endl;
     for (const auto &device_entry : kernel_device.second) {
@@ -72,9 +73,11 @@ void timetable::print() {
       switch (device_entry.first.get_backend()) {
         case backend_id::omp:
           std::cout << "OMP";
+          total_omp_time += device_entry.second.sum;
           break;
         case backend_id::cuda:
           std::cout << "CUDA";
+          total_cuda_time += device_entry.second.sum;
           break;
         case backend_id::hip:
           std::cout << "HIP";
@@ -84,12 +87,15 @@ void timetable::print() {
           break;
       }
 
-      std::cout << "\t[count: " << device_entry.second.count << ", sum: " << device_entry.second.sum
+      std::cout << "\t[count: " << std::dec << device_entry.second.count << ", sum: " << device_entry.second.sum
                 << ", average: " << device_entry.second.average << "]" << std::endl;
     }
 
     std::cout << "-------------" << std::endl;
   }
+
+  std::cout << "Total cuda time: " << total_cuda_time << std::endl << "Total omp time: " << total_omp_time << std::endl;
+  std::cout << "Total run time: " << total_omp_time + total_cuda_time << std::endl;
 }
 }
 }

@@ -63,6 +63,8 @@ void random_model::assign_devices(dag &dag) {
 }
 
 void dynamic_model::assign_devices(dag &dag) {
+  float estimated_GPU_time = 0, estimated_CPU_time = 0;
+
   for (auto node : dag.get_command_groups()) {
     device_id target_device;
     if (node->get_operation()->is_requirement()) {
@@ -76,8 +78,47 @@ void dynamic_model::assign_devices(dag &dag) {
       // Use execution hint device for buffer memory specific nodes.
       target_device = node->get_execution_hints().get_hint<hints::bind_to_device>()->get_device_id();
     } else {
-      srand(rand() ^ time(NULL));
-      target_device = _devices[rand() % _devices.size()];
+      std::string kernel_name = "Unknown";
+      if (typeid(*node->get_operation()) == typeid(kernel_operation)) {
+        kernel_operation *k = dynamic_cast<kernel_operation *>(node->get_operation());
+        kernel_name = k->_kernel_name;
+      }
+
+      if (_timetable->get_entry(kernel_name, _devices[0]).average < 0.0f &&
+          _timetable->get_entry(kernel_name, _devices[1]).average < 0.0f) {
+        srand(rand() ^ time(NULL));
+        std::cout << "\n\nRANDOMIZING: " << _devices.size() << std::endl;
+        target_device = _devices[rand() % _devices.size()];
+
+      } else if (_timetable->get_entry(kernel_name, _devices[0]).average < 0.0f) {
+        target_device = _devices[0];
+      } else if (_timetable->get_entry(kernel_name, _devices[1]).average < 0.0f) {
+        target_device = _devices[1];
+      } else {
+        //Once tables have been built, assign them to lower estimated execution time of both devices.
+        float GPU_time;
+        float CPU_time; 
+        backend_id backend = _devices[0].get_backend();
+        if(backend == backend_id::cuda){
+          CPU_time = _timetable->get_entry(kernel_name, _devices[1]).average;
+          GPU_time = _timetable->get_entry(kernel_name, _devices[0]).average;
+        } else {
+          CPU_time = _timetable->get_entry(kernel_name, _devices[0]).average;
+          GPU_time = _timetable->get_entry(kernel_name, _devices[1]).average;
+        }    
+
+        if((CPU_time + estimated_CPU_time) <= (GPU_time + estimated_GPU_time)){
+          estimated_CPU_time += CPU_time;
+          if(backend == backend_id::cuda) target_device = _devices[1];
+          else target_device = _devices[0];
+        }
+        else {
+          estimated_GPU_time += GPU_time;
+          if(backend == backend_id::cuda) target_device = _devices[0];
+          else target_device = _devices[1];
+        }
+
+      }
     }
     node->assign_to_device(target_device);
 
@@ -106,7 +147,7 @@ void dynamic_model::assign_devices(dag &dag) {
             auto start = profiler.await_event(rt::timestamp_profiler::event::operation_started);
             auto end = profiler.await_event(rt::timestamp_profiler::event::operation_finished);
             auto duration = (std::chrono::duration_cast<std::chrono::microseconds>(end.time_since_epoch()).count() -
-                         std::chrono::duration_cast<std::chrono::microseconds>(start.time_since_epoch()).count());
+                             std::chrono::duration_cast<std::chrono::microseconds>(start.time_since_epoch()).count());
 
             timetable->register_time(kernel_name, node->get_assigned_device(), duration);
           },
