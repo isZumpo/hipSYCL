@@ -45,13 +45,14 @@ namespace rt {
  * @param average the average time the kernel takes to run.
  */
 struct timetable_entry {
-  int count; /**< times the kernel has been executed. */
-  float sum; /**< the total time the kernel has been run. */
+  int count;     /**< times the kernel has been executed. */
+  float sum;     /**< the total time the kernel has been run. */
   float average; /**< the average time the kernel takes to run. */
 };
 
 class timetable {
  public:
+  timetable(std::vector<device_id> &devices) : _devices(devices) {}
   /**
    * Registers given time in timetable for device and kernel combination
    *
@@ -61,12 +62,14 @@ class timetable {
   void register_time(std::string kernel_name, device_id device, float time);
 
   timetable_entry get_entry(std::string kernel_name, device_id device);
+  std::vector<device_id> get_missing_entries(std::string kernel_name);
 
   void print();
 
  private:
   std::map<std::string, std::unordered_map<device_id, timetable_entry>> _table;
   std::mutex _timetable_mutex;
+  std::vector<device_id> _devices;
 };
 
 }

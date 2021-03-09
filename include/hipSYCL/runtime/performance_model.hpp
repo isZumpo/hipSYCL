@@ -69,7 +69,7 @@ class dynamic_model : public performance_model {
     _timetable->print();
   }
   dynamic_model(std::vector<device_id> &devices) : _devices(devices) {
-    _timetable = std::make_unique<timetable>();
+    _timetable = std::make_unique<timetable>(_devices);
   }
   void assign_devices(dag &dag);
 

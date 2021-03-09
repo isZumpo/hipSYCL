@@ -61,6 +61,25 @@ timetable_entry timetable::get_entry(std::string kernel_name, device_id device) 
   return timetable_entry{.count = -1, .sum = -1.0, .average = -1.0};
 }
 
+std::vector<device_id> timetable::get_missing_entries(std::string kernel_name) {
+  if (_table.count(kernel_name) <= 0) {
+    return _devices;
+  }
+
+  if (_table[kernel_name].size() == _devices.size()) {
+    return {};
+  }
+
+  std::vector<device_id> missing;
+  for (auto &device : _devices) {
+    if (_table[kernel_name].count(device) <= 0) {
+      missing.push_back(device);
+    }
+  }
+
+  return missing;
+}
+
 void timetable::print() {
   std::lock_guard<std::mutex> lock(_timetable_mutex);
 
