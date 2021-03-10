@@ -53,6 +53,15 @@ class performance_model {
   }
 };
 
+class direct_model : public performance_model {
+ public:
+  direct_model(std::vector<device_id> &devices) : _devices(devices) {}
+  void assign_devices(dag &dag);
+
+ private:
+  std::vector<device_id> _devices;
+};
+
 class random_model : public performance_model {
  public:
   random_model(std::vector<device_id> &devices) : _devices(devices) {}
@@ -62,13 +71,13 @@ class random_model : public performance_model {
   std::vector<device_id> _devices;
 };
 
-class dynamic_model : public performance_model {
+class estimate_execution_model : public performance_model {
  public:
-  ~dynamic_model() {
+  ~estimate_execution_model() {
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
     _timetable->print();
   }
-  dynamic_model(std::vector<device_id> &devices) : _devices(devices) {
+  estimate_execution_model(std::vector<device_id> &devices) : _devices(devices) {
     _timetable = std::make_unique<timetable>(_devices);
   }
   void assign_devices(dag &dag);

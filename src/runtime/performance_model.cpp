@@ -33,6 +33,34 @@
 namespace hipsycl {
 namespace rt {
 
+void direct_model::assign_devices(dag &dag) {
+  for (auto node : dag.get_command_groups()) {
+    if (!node->get_execution_hints().has_hint<hints::bind_to_device>()) {
+    register_error(__hipsycl_here(),
+                   error_info{"dag_direct_scheduler: Direct scheduler does not "
+                              "support DAG nodes not bound to devices.",
+                              error_type::feature_not_supported});
+    abort_submission(node);
+    return;
+   }
+
+    device_id target_device = node->get_execution_hints()
+                                  .get_hint<hints::bind_to_device>()
+                                  ->get_device_id();
+    node->assign_to_device(target_device);
+    
+    for (auto req : node->get_requirements()){
+      if (!node->get_execution_hints().has_hint<hints::bind_to_device>()) {
+      req->assign_to_device(target_device);
+      } else {
+      req->assign_to_device(node->get_execution_hints()
+                                .get_hint<hints::bind_to_device>()
+                                ->get_device_id());
+      }
+    }
+  }
+}
+
 void random_model::assign_devices(dag &dag) {
   for (auto node : dag.get_command_groups()) {
     device_id target_device;
@@ -63,7 +91,7 @@ void random_model::assign_devices(dag &dag) {
   }
 }
 
-void dynamic_model::assign_devices(dag &dag) {
+void estimate_execution_model::assign_devices(dag &dag) {
   std::unordered_map<device_id, float> dag_estimated_times;
   for (auto device : _devices) {
     dag_estimated_times.emplace(device, 0.0f);

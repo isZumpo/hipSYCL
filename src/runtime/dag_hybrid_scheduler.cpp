@@ -255,7 +255,8 @@ void dag_hybrid_scheduler::submit(dag dag) {
     std::cout << "Found " << _devices.size() << " devices" << std::endl;
   }
 
-  static dynamic_model model(_devices);
+  // static direct_model model(_devices);
+  static estimate_execution_model model(_devices);
 
   model.assign_devices(dag);
 
@@ -263,7 +264,7 @@ void dag_hybrid_scheduler::submit(dag dag) {
     for (auto req : node->get_requirements()) {
       if (!req->get_operation()->is_requirement()) {
         if (!req->is_submitted()) {
-          register_error(__hipsycl_here(), error_info{"dag_hybrid_scheduler: Direct scheduler does not "
+          register_error(__hipsycl_here(), error_info{"dag_hybrid_scheduler: Hybrid scheduler does not "
                                                       "support processing multiple unsubmitted nodes",
                                                       error_type::feature_not_supported});
           abort_submission(node);
