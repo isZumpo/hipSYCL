@@ -24,6 +24,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include <algorithm>
 
 #include "hipSYCL/runtime/performance_model.hpp"
 
@@ -96,19 +97,38 @@ void dynamic_model::assign_devices(dag &dag) {
       } else if (missing_entries.size() > 0) {
         target_device = missing_entries.front();
       } else {
-        std::unordered_map<device_id, float> new_dag_estimated_times;
+        std::vector<std::pair<device_id, float>> new_dag_estimated_times;
+        float treshhold_value = 0.5f; // If the difference in execution time is within this threshhold
         for (auto device : _devices) {
-          new_dag_estimated_times.emplace(device,
-                                          _timetable->get_entry(kernel_name, device).average + dag_estimated_times[device]);
+          new_dag_estimated_times.push_back({device,
+                                          _timetable->get_entry(kernel_name, device).average + dag_estimated_times[device]});
         }
 
-        auto min_element = std::min_element(new_dag_estimated_times.begin(), new_dag_estimated_times.end(),
-                                            [](const auto &l, const auto &r) { return l.second < r.second; });
+        std::sort(new_dag_estimated_times.begin(), new_dag_estimated_times.end(),
+                  [](const auto &l, const auto &r) { return l.second < r.second; });
 
-        target_device = min_element->first;
-        dag_estimated_times[target_device] = new_dag_estimated_times[target_device];
+        //Check if the execution time is within the threshhold or not
+        float new_time;
+        if(new_dag_estimated_times[1].second * treshhold_value <  new_dag_estimated_times[0].second) {
+          target_device = new_dag_estimated_times[0].first;
+          new_time = new_dag_estimated_times[0].second;
+          for(auto req : node->get_requirements()){
+            if(!req->get_requirements().empty()){
+              target_device = req->get_requirements().front()->get_assigned_device();
+              auto find = std::find_if(new_dag_estimated_times.begin(), new_dag_estimated_times.end(), [&target_device] (const auto &s) { return s.first == target_device; } );
+              new_time = find->second;          
+              break;
+            }
+          }
+
+        } else {
+          target_device = new_dag_estimated_times[0].first;
+          new_time = new_dag_estimated_times[0].second;
+        } 
+        dag_estimated_times[target_device] = new_time;    
       }
     }
+
     node->assign_to_device(target_device);
 
     // Assign all requirments to the same kernel that requires them.
