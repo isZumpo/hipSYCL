@@ -55,11 +55,8 @@ class performance_model {
 
 class direct_model : public performance_model {
  public:
-  direct_model(std::vector<device_id> &devices) : _devices(devices) {}
+  direct_model();
   void assign_devices(dag &dag);
-
- private:
-  std::vector<device_id> _devices;
 };
 
 class random_model : public performance_model {

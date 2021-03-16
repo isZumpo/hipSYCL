@@ -119,41 +119,40 @@ void estimate_execution_model::assign_devices(dag &dag) {
       std::vector<device_id> missing_entries = _timetable->get_missing_entries(kernel_name);
 
       // Fill entries for kernel before using data for scheduling
-      if (missing_entries.size() == _devices.size()) {
-        srand(rand() ^ time(NULL));
-        target_device = missing_entries[rand() % missing_entries.size()];
-      } else if (missing_entries.size() > 0) {
+      if (missing_entries.size() > 0) {
         target_device = missing_entries.front();
       } else {
-        std::vector<std::pair<device_id, float>> new_dag_estimated_times;
-        float treshhold_value = 0.5f; // If the difference in execution time is within this threshhold
+        std::vector<std::pair<device_id, float>> sorted_average;
+        float treshhold_value = 0.7f; // If the difference in execution time is within this threshhold
         for (auto device : _devices) {
-          new_dag_estimated_times.push_back({device,
-                                          _timetable->get_entry(kernel_name, device).average + dag_estimated_times[device]});
+          sorted_average.push_back({device,
+                                          // _timetable->get_entry(kernel_name, device).average + dag_estimated_times[device]});
+                                          _timetable->get_entry(kernel_name, device).average});
         }
 
-        std::sort(new_dag_estimated_times.begin(), new_dag_estimated_times.end(),
+        std::sort(sorted_average.begin(), sorted_average.end(),
                   [](const auto &l, const auto &r) { return l.second < r.second; });
 
         //Check if the execution time is within the threshhold or not
-        float new_time;
-        if(new_dag_estimated_times[1].second * treshhold_value <  new_dag_estimated_times[0].second) {
-          target_device = new_dag_estimated_times[0].first;
-          new_time = new_dag_estimated_times[0].second;
+        float new_estimated_time;
+        if(sorted_average[1].second * treshhold_value + dag_estimated_times[sorted_average[1].first] <
+          sorted_average[0].second + dag_estimated_times[sorted_average[0].first]) {
+          target_device = sorted_average[0].first; //If no dependecy is found, revert back to the fastest device.
+          new_estimated_time = sorted_average[0].second + dag_estimated_times[target_device];
           for(auto req : node->get_requirements()){
             if(!req->get_requirements().empty()){
               target_device = req->get_requirements().front()->get_assigned_device();
-              auto find = std::find_if(new_dag_estimated_times.begin(), new_dag_estimated_times.end(), [&target_device] (const auto &s) { return s.first == target_device; } );
-              new_time = find->second;          
+              auto find = std::find_if(sorted_average.begin(), sorted_average.end(), [&target_device] (const auto &s) { return s.first == target_device; } );
+              new_estimated_time = find->second + dag_estimated_times[find->first];          
               break;
             }
           }
 
         } else {
-          target_device = new_dag_estimated_times[0].first;
-          new_time = new_dag_estimated_times[0].second;
+          target_device = sorted_average[0].first;
+          new_estimated_time = sorted_average[0].second + dag_estimated_times[target_device];
         } 
-        dag_estimated_times[target_device] = new_time;    
+        dag_estimated_times[target_device] = new_estimated_time;    
       }
     }
 

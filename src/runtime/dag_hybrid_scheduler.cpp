@@ -255,7 +255,7 @@ void dag_hybrid_scheduler::submit(dag dag) {
     std::cout << "Found " << _devices.size() << " devices" << std::endl;
   }
 
-  // static direct_model model(_devices);
+  // static direct_model model();
   static estimate_execution_model model(_devices);
 
   model.assign_devices(dag);

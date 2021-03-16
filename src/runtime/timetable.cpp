@@ -45,7 +45,7 @@ void timetable::register_time(std::string kernel_name, device_id device, float t
     auto entry = device_table[device];
     entry.count += 1;
     entry.sum += time;
-    entry.average = entry.sum / entry.count;  // TODO might give wrong unwanted average
+    entry.average = entry.sum / entry.count;
     device_table[device] = entry;
   } else {
     device_table[device] = timetable_entry{.count = 1, .sum = time, .average = time};
